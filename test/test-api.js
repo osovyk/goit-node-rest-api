@@ -1,4 +1,14 @@
+import { faker } from '@faker-js/faker';
+
 const BASE_URL = 'http://localhost:3000/api/contacts';
+
+function generateRandomContact() {
+    return {
+        name: faker.person.fullName(),
+        email: faker.internet.email(),
+        phone: faker.phone.number()
+    };
+}
 
 async function request(url, options = {}) {
     try {
@@ -10,8 +20,29 @@ async function request(url, options = {}) {
     }
 }
 
+async function seedContacts(count = 5) {
+    console.log(`Seeding ${count} contacts...\n`);
+
+    for (let i = 0; i < count; i++) {
+        const contact = generateRandomContact();
+        const result = await request(BASE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(contact)
+        });
+
+        if (result.status === 201) {
+            console.log(`Contact ${i + 1} created: ${contact.name}`);
+        }
+    }
+
+    console.log('\nSeeding completed!\n');
+}
+
 async function testAPI() {
     console.log('Starting API tests...\n');
+
+    await seedContacts(5);
 
     let testContactId = null;
     let createdContactId = null;
@@ -19,7 +50,7 @@ async function testAPI() {
     console.log('TEST 1: GET /api/contacts');
     const getAllResult = await request(BASE_URL);
     console.log(`Status: ${getAllResult.status}`);
-    console.log('Response:', JSON.stringify(getAllResult.data, null, 2));
+    console.log(`Response: Found ${getAllResult.data.length} contacts`);
 
     if (getAllResult.status === 200 && getAllResult.data.length > 0) {
         testContactId = getAllResult.data[0].id;
@@ -42,7 +73,8 @@ async function testAPI() {
     }
 
     console.log('TEST 3: GET /api/contacts/:id (invalid ID)');
-    const getInvalidResult = await request(`${BASE_URL}/invalid-id-123`);
+    const invalidId = faker.string.alphanumeric(10);
+    const getInvalidResult = await request(`${BASE_URL}/${invalidId}`);
     console.log(`Status: ${getInvalidResult.status}`);
     console.log('Response:', JSON.stringify(getInvalidResult.data, null, 2));
 
@@ -53,11 +85,7 @@ async function testAPI() {
     }
 
     console.log('TEST 4: POST /api/contacts');
-    const newContact = {
-        name: 'Test User',
-        email: 'test@example.com',
-        phone: '(123) 456-7890'
-    };
+    const newContact = generateRandomContact();
 
     const postResult = await request(BASE_URL, {
         method: 'POST',
@@ -79,7 +107,7 @@ async function testAPI() {
     const invalidPost = await request(BASE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'test@test.com' })
+        body: JSON.stringify({ email: faker.internet.email() })
     });
 
     console.log(`Status: ${invalidPost.status}`);
@@ -94,8 +122,8 @@ async function testAPI() {
     if (createdContactId) {
         console.log('TEST 6: PUT /api/contacts/:id');
         const updateData = {
-            name: 'Updated Test User',
-            email: 'updated@example.com'
+            name: faker.person.fullName(),
+            email: faker.internet.email()
         };
 
         const putResult = await request(`${BASE_URL}/${createdContactId}`, {
@@ -133,10 +161,11 @@ async function testAPI() {
     }
 
     console.log('TEST 8: PUT /api/contacts/:id (invalid ID)');
-    const invalidPut = await request(`${BASE_URL}/invalid-id-456`, {
+    const invalidUpdateId = faker.string.alphanumeric(10);
+    const invalidPut = await request(`${BASE_URL}/${invalidUpdateId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Test' })
+        body: JSON.stringify({ name: faker.person.fullName() })
     });
 
     console.log(`Status: ${invalidPut.status}`);
@@ -149,7 +178,75 @@ async function testAPI() {
     }
 
     if (createdContactId) {
-        console.log('TEST 9: DELETE /api/contacts/:id');
+        console.log('TEST 9: PATCH /api/contacts/:id/favorite (set to true)');
+        const patchFavoriteTrue = await request(`${BASE_URL}/${createdContactId}/favorite`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ favorite: true })
+        });
+
+        console.log(`Status: ${patchFavoriteTrue.status}`);
+        console.log('Response:', JSON.stringify(patchFavoriteTrue.data, null, 2));
+
+        if (patchFavoriteTrue.status === 200 && patchFavoriteTrue.data.favorite === true) {
+            console.log('PASS: Favorite set to true\n');
+        } else {
+            console.log('FAIL: Failed to update favorite status\n');
+        }
+    }
+
+    if (createdContactId) {
+        console.log('TEST 10: PATCH /api/contacts/:id/favorite (set to false)');
+        const patchFavoriteFalse = await request(`${BASE_URL}/${createdContactId}/favorite`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ favorite: false })
+        });
+
+        console.log(`Status: ${patchFavoriteFalse.status}`);
+        console.log('Response:', JSON.stringify(patchFavoriteFalse.data, null, 2));
+
+        if (patchFavoriteFalse.status === 200 && patchFavoriteFalse.data.favorite === false) {
+            console.log('PASS: Favorite set to false\n');
+        } else {
+            console.log('FAIL: Failed to update favorite status\n');
+        }
+    }
+
+    console.log('TEST 11: PATCH /api/contacts/:id/favorite (missing favorite field)');
+    const patchNoFavorite = await request(`${BASE_URL}/${createdContactId || 1}/favorite`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+    });
+
+    console.log(`Status: ${patchNoFavorite.status}`);
+    console.log('Response:', JSON.stringify(patchNoFavorite.data, null, 2));
+
+    if (patchNoFavorite.status === 400) {
+        console.log('PASS: Validation works for missing favorite field\n');
+    } else {
+        console.log('FAIL: Should be 400\n');
+    }
+
+    console.log('TEST 12: PATCH /api/contacts/:id/favorite (invalid ID)');
+    const patchInvalidId = await request(`${BASE_URL}/999999/favorite`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ favorite: true })
+    });
+
+    console.log(`Status: ${patchInvalidId.status}`);
+    console.log('Response:', JSON.stringify(patchInvalidId.data, null, 2));
+
+    if (patchInvalidId.status === 404) {
+        console.log('PASS: Correctly returned 404 for invalid ID\n');
+    } else {
+        console.log('FAIL: Should be 404\n');
+    }
+
+    if (createdContactId) {
+        console.log('TEST 13: DELETE /api/contacts/:id');
         const deleteResult = await request(`${BASE_URL}/${createdContactId}`, {
             method: 'DELETE'
         });
@@ -164,8 +261,9 @@ async function testAPI() {
         }
     }
 
-    console.log('TEST 10: DELETE /api/contacts/:id (invalid ID)');
-    const invalidDelete = await request(`${BASE_URL}/invalid-id-789`, {
+    console.log('TEST 14: DELETE /api/contacts/:id (invalid ID)');
+    const deleteInvalidId = faker.string.alphanumeric(10);
+    const invalidDelete = await request(`${BASE_URL}/${deleteInvalidId}`, {
         method: 'DELETE'
     });
 

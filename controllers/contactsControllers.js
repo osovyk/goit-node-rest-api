@@ -1,5 +1,5 @@
-import * as contactsService from "../services/contactsServices.js";
-import HttpError from "../helpers/HttpError.js";
+import * as contactsService from '../services/contactsServices.js';
+import HttpError from '../helpers/HttpError.js';
 
 export const getAllContacts = async (req, res, next) => {
     try {
@@ -13,10 +13,15 @@ export const getAllContacts = async (req, res, next) => {
 export const getOneContact = async (req, res, next) => {
     try {
         const { id } = req.params;
+
+        if (isNaN(id)) {
+            throw HttpError(404, 'Not found');
+        }
+
         const contact = await contactsService.getContactById(id);
 
         if (!contact) {
-            throw HttpError(404, "Not found");
+            throw HttpError(404, 'Not found');
         }
 
         res.status(200).json(contact);
@@ -28,10 +33,15 @@ export const getOneContact = async (req, res, next) => {
 export const deleteContact = async (req, res, next) => {
     try {
         const { id } = req.params;
+
+        if (isNaN(id)) {
+            throw HttpError(404, 'Not found');
+        }
+
         const contact = await contactsService.removeContact(id);
 
         if (!contact) {
-            throw HttpError(404, "Not found");
+            throw HttpError(404, 'Not found');
         }
 
         res.status(200).json(contact);
@@ -55,14 +65,39 @@ export const updateContact = async (req, res, next) => {
         const { id } = req.params;
         const body = req.body;
 
+        if (isNaN(id)) {
+            throw HttpError(404, 'Not found');
+        }
+
         if (Object.keys(body).length === 0) {
-            throw HttpError(400, "Body must have at least one field");
+            throw HttpError(400, 'Body must have at least one field');
         }
 
         const updatedContact = await contactsService.updateContact(id, body);
 
         if (!updatedContact) {
-            throw HttpError(404, "Not found");
+            throw HttpError(404, 'Not found');
+        }
+
+        res.status(200).json(updatedContact);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateContactFavorite = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const body = req.body;
+
+        if (isNaN(id)) {
+            throw HttpError(404, 'Not found');
+        }
+
+        const updatedContact = await contactsService.updateStatusContact(id, body);
+
+        if (!updatedContact) {
+            throw HttpError(404, 'Not found');
         }
 
         res.status(200).json(updatedContact);

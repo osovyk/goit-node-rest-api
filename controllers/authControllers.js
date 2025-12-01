@@ -1,0 +1,147 @@
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
+
+const secret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+export const register = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+        const existingUser = await User.findOne({ where: { email } });
+
+        if (existingUser) {
+            return res.status(409).json({
+                status: 'error',
+                code: 409,
+                message: 'Email in use',
+                data: 'Conflict',
+            });
+        }
+
+        const newUser = await User.create({
+            email,
+            password,
+        });
+
+        res.status(201).json({
+            status: 'success',
+            code: 201,
+            data: {
+                user: {
+                    email: newUser.email,
+                    subscription: newUser.subscription,
+                },
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const login = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ where: { email } });
+
+        if (!user || !user.validPassword(password)) {
+            return res.status(401).json({
+                status: 'error',
+                code: 401,
+                message: 'Email or password is wrong',
+                data: 'Unauthorized',
+            });
+        }
+
+        const payload = {
+            id: user.id,
+            email: user.email,
+        };
+
+        const token = jwt.sign(payload, secret, { expiresIn: '1h' });
+
+        await user.update({ token });
+
+        res.json({
+            status: 'success',
+            code: 200,
+            data: {
+                token,
+                user: {
+                    email: user.email,
+                    subscription: user.subscription,
+                },
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const logout = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const user = await User.findByPk(userId);
+
+        if (!user) {
+            return res.status(401).json({
+                status: 'error',
+                code: 401,
+                message: 'Not authorized',
+                data: 'Unauthorized',
+            });
+        }
+
+        await user.update({ token: null });
+
+        res.status(204).send();
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getCurrent = async (req, res, next) => {
+    try {
+        const { email, subscription } = req.user;
+
+        res.json({
+            status: 'success',
+            code: 200,
+            data: {
+                email,
+                subscription,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateSubscription = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { subscription } = req.body;
+
+        const user = await User.findByPk(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                status: 'error',
+                code: 404,
+                message: 'User not found',
+                data: 'Not Found',
+            });
+        }
+
+        await user.update({ subscription });
+
+        res.json({
+            status: 'success',
+            code: 200,
+            data: {
+                email: user.email,
+                subscription: user.subscription,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};

@@ -13,8 +13,11 @@ import {
     updateContactSchema,
     updateFavoriteSchema,
 } from '../schemas/contactsSchemas.js';
+import auth from '../middleware/auth.js';
 
 const contactsRouter = express.Router();
+
+contactsRouter.use(auth);
 
 contactsRouter.get('/', getAllContacts);
 contactsRouter.get('/:id', getOneContact);

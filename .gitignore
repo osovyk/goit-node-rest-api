@@ -139,3 +139,7 @@ vite.config.ts.timestamp-*
 
 .idea/
 .vscode/
+
+tmp/
+public/avatars/*
+!public/avatars/.gitkeep

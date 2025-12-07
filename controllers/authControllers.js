@@ -1,4 +1,7 @@
 import jwt from 'jsonwebtoken';
+import gravatar from 'gravatar';
+import fs from 'fs/promises';
+import path from 'path';
 import User from '../models/User.js';
 
 const secret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -17,9 +20,12 @@ export const register = async (req, res, next) => {
             });
         }
 
+        const avatarURL = gravatar.url(email, { s: '250', r: 'pg', d: 'retro' }, true);
+
         const newUser = await User.create({
             email,
             password,
+            avatarURL,
         });
 
         res.status(201).json({
@@ -139,6 +145,51 @@ export const updateSubscription = async (req, res, next) => {
             data: {
                 email: user.email,
                 subscription: user.subscription,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateAvatar = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                status: 'error',
+                code: 400,
+                message: 'No file uploaded',
+                data: 'Bad Request',
+            });
+        }
+
+        const userId = req.user.id;
+        const user = await User.findByPk(userId);
+
+        if (!user) {
+            return res.status(401).json({
+                status: 'error',
+                code: 401,
+                message: 'Not authorized',
+                data: 'Unauthorized',
+            });
+        }
+
+        const ext = path.extname(req.file.originalname);
+        const filename = `${userId}${ext}`;
+        const oldPath = req.file.path;
+        const newPath = path.join('public', 'avatars', filename);
+
+        await fs.rename(oldPath, newPath);
+
+        const avatarURL = `/avatars/${filename}`;
+        await user.update({ avatarURL });
+
+        res.json({
+            status: 'success',
+            code: 200,
+            data: {
+                avatarURL,
             },
         });
     } catch (error) {

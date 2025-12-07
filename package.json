@@ -6,7 +6,13 @@
   "type": "module",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:auth": "node tests/auth.integration.test.js",
+    "test:contacts": "node tests/contacts.integration.test.js",
+    "test:avatar": "node tests/avatar.integration.test.js",
+    "test:all": "npm run test:auth && npm run test:contacts && npm run test:avatar"
   },
   "repository": {
     "type": "git",
@@ -24,9 +30,11 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "gravatar": "^1.8.2",
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
+    "multer": "^2.0.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.16.3",
@@ -35,6 +43,9 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^10.1.0",
-    "nodemon": "^3.1.11"
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.11",
+    "supertest": "^7.1.4"
   }
 }

@@ -24,6 +24,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', authRouter);
 app.use('/api/contacts', contactsRouter);
 
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+    });
+});
+
 app.use((_, res) => {
     res.status(404).json({
         status: 'error',
@@ -54,7 +62,6 @@ async function startServer() {
         Contact.belongsTo(User, { foreignKey: 'owner' });
 
         await sequelize.sync();
-        // await sequelize.sync({ alter: true });
 
         app.listen(PORT, () => {
             console.log(`Server is running. Use our API on port: ${PORT}`);

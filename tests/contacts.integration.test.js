@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import { verifyUserDirectly } from '../helpers/testHelpers.js';
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -51,6 +52,8 @@ async function testContactsAPI() {
         body: JSON.stringify(testUser),
     });
 
+    await verifyUserDirectly(testUser.email);
+
     const loginResult = await request(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -61,7 +64,7 @@ async function testContactsAPI() {
         authToken = loginResult.data.data.token;
         console.log('Setup complete\n');
     } else {
-        console.error('Setup failed');
+        console.error('Setup failed - login');
         return;
     }
 

@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { verifyUserDirectly } from '../helpers/testHelpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,6 +54,8 @@ async function testAvatarAPI() {
         return;
     }
 
+    await verifyUserDirectly(testUser.email);
+
     const loginResult = await request(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,7 +79,7 @@ async function testAvatarAPI() {
     });
 
     console.log(`Status: ${currentResult.status}`);
-    console.log(currentResult.status === 200 ? 'PASS' : 'FAIL');
+    console.log(currentResult.status === 200 && currentResult.data.data.avatarURL ? 'PASS' : 'FAIL');
 
     console.log('\nTEST 2: Check static file serving');
     const staticResult = await request('http://localhost:3000/avatars/avatar.jpg', {

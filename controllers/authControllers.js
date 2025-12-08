@@ -2,7 +2,9 @@ import jwt from 'jsonwebtoken';
 import gravatar from 'gravatar';
 import fs from 'fs/promises';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import User from '../models/User.js';
+import { sendVerificationEmail } from '../helpers/sendEmail.js';
 
 const secret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -21,12 +23,16 @@ export const register = async (req, res, next) => {
         }
 
         const avatarURL = gravatar.url(email, { s: '250', r: 'pg', d: 'retro' }, true);
+        const verificationToken = uuidv4();
 
         const newUser = await User.create({
             email,
             password,
             avatarURL,
+            verificationToken,
         });
+
+        await sendVerificationEmail(email, verificationToken);
 
         res.status(201).json({
             status: 'success',
@@ -54,6 +60,15 @@ export const login = async (req, res, next) => {
                 status: 'error',
                 code: 401,
                 message: 'Email or password is wrong',
+                data: 'Unauthorized',
+            });
+        }
+
+        if (!user.verify) {
+            return res.status(401).json({
+                status: 'error',
+                code: 401,
+                message: 'Email not verified',
                 data: 'Unauthorized',
             });
         }
@@ -182,7 +197,12 @@ export const updateAvatar = async (req, res, next) => {
         const oldPath = req.file.path;
         const newPath = path.join('public', 'avatars', filename);
 
-        await fs.rename(oldPath, newPath);
+        try {
+            await fs.copyFile(oldPath, newPath);
+            await fs.unlink(oldPath);
+        } catch (error) {
+            await fs.rename(oldPath, newPath);
+        }
 
         const avatarURL = `/avatars/${filename}`;
         await user.update({ avatarURL });
@@ -193,6 +213,107 @@ export const updateAvatar = async (req, res, next) => {
             data: {
                 avatarURL,
             },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export const verifyEmail = async (req, res, next) => {
+    try {
+        const { verificationToken } = req.params;
+
+        const user = await User.findOne({ where: { verificationToken } });
+
+        if (!user) {
+            return res.status(404).json({
+                status: 'error',
+                code: 404,
+                message: 'User not found',
+            });
+        }
+
+        await user.update({
+            verify: true,
+            verificationToken: null,
+        });
+
+        res.json({
+            status: 'success',
+            code: 200,
+            message: 'Verification successful',
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const resendVerificationEmail = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+
+        const user = await User.findOne({ where: { email } });
+
+        if (!user) {
+            return res.status(404).json({
+                status: 'error',
+                code: 404,
+                message: 'User not found',
+            });
+        }
+
+        if (user.verify) {
+            return res.status(400).json({
+                status: 'error',
+                code: 400,
+                message: 'Verification has already been passed',
+            });
+        }
+
+        await sendVerificationEmail(email, user.verificationToken);
+
+        res.json({
+            status: 'success',
+            code: 200,
+            message: 'Verification email sent',
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const verifyUserForTest = async (req, res, next) => {
+    if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({
+            status: 'error',
+            code: 403,
+            message: 'Test endpoint not available in production',
+        });
+    }
+
+    try {
+        const { email } = req.body;
+
+        const user = await User.findOne({ where: { email } });
+
+        if (!user) {
+            return res.status(404).json({
+                status: 'error',
+                code: 404,
+                message: 'User not found',
+            });
+        }
+
+        await user.update({
+            verify: true,
+            verificationToken: null,
+        });
+
+        res.json({
+            status: 'success',
+            code: 200,
+            message: 'User verified for testing',
         });
     } catch (error) {
         next(error);

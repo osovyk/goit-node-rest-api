@@ -35,6 +35,7 @@ export const register = async (req, res, next) => {
                 user: {
                     email: newUser.email,
                     subscription: newUser.subscription,
+                    avatarURL: newUser.avatarURL,
                 },
             },
         });
@@ -106,7 +107,7 @@ export const logout = async (req, res, next) => {
 
 export const getCurrent = async (req, res, next) => {
     try {
-        const { email, subscription } = req.user;
+        const { email, subscription, avatarURL } = req.user;
 
         res.json({
             status: 'success',
@@ -114,6 +115,7 @@ export const getCurrent = async (req, res, next) => {
             data: {
                 email,
                 subscription,
+                avatarURL,
             },
         });
     } catch (error) {

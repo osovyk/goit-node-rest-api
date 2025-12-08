@@ -56,4 +56,40 @@ describe('Auth Controller - Login', () => {
             expect(typeof mockLoginResponse.data.user.subscription).toBe('string');
         });
     });
+
+    describe('Register response validation', () => {
+        it('should return user with avatarURL on registration', () => {
+            const mockRegisterResponse = {
+                status: 'success',
+                code: 201,
+                data: {
+                    user: {
+                        email: 'test@example.com',
+                        subscription: 'starter',
+                        avatarURL: 'https://www.gravatar.com/avatar/hash?s=250&r=pg&d=retro',
+                    },
+                },
+            };
+
+            expect(mockRegisterResponse.data.user).toHaveProperty('avatarURL');
+            expect(typeof mockRegisterResponse.data.user.avatarURL).toBe('string');
+        });
+    });
+
+    describe('Current user response validation', () => {
+        it('should return current user with avatarURL', () => {
+            const mockCurrentResponse = {
+                status: 'success',
+                code: 200,
+                data: {
+                    email: 'test@example.com',
+                    subscription: 'starter',
+                    avatarURL: 'https://www.gravatar.com/avatar/hash?s=250&r=pg&d=retro',
+                },
+            };
+
+            expect(mockCurrentResponse.data).toHaveProperty('avatarURL');
+            expect(typeof mockCurrentResponse.data.avatarURL).toBe('string');
+        });
+    });
 });

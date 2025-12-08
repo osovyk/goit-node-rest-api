@@ -43,7 +43,13 @@ async function testAuthAPI() {
     });
 
     console.log(`Status: ${registerResult.status}`);
-    console.log(registerResult.status === 201 ? 'PASS' : 'FAIL');
+
+    if (registerResult.status === 201 && registerResult.data.data.user.avatarURL) {
+        console.log('PASS - User registered with avatarURL');
+        console.log(`Avatar: ${registerResult.data.data.user.avatarURL}`);
+    } else {
+        console.log('FAIL');
+    }
 
     if (registerResult.status !== 201) {
         console.error('Failed to register, aborting tests');
@@ -99,7 +105,13 @@ async function testAuthAPI() {
     });
 
     console.log(`Status: ${currentResult.status}`);
-    console.log(currentResult.status === 200 ? 'PASS' : 'FAIL');
+
+    if (currentResult.status === 200 && currentResult.data.data.avatarURL) {
+        console.log('PASS - Current user with avatarURL');
+        console.log(`Avatar: ${currentResult.data.data.avatarURL}`);
+    } else {
+        console.log('FAIL');
+    }
 
     console.log('\nTEST 6: GET /api/auth/current (without token)');
     const unauthorizedResult = await request(`${BASE_URL}/auth/current`, {

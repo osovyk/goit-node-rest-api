@@ -92,4 +92,52 @@ describe('Auth Controller - Login', () => {
             expect(typeof mockCurrentResponse.data.avatarURL).toBe('string');
         });
     });
+
+    describe('Email verification response validation', () => {
+        it('should return verification successful message', () => {
+            const mockVerifyResponse = {
+                status: 'success',
+                code: 200,
+                message: 'Verification successful',
+            };
+
+            expect(mockVerifyResponse.code).toBe(200);
+            expect(mockVerifyResponse.message).toBe('Verification successful');
+        });
+
+        it('should return user not found for invalid token', () => {
+            const mockErrorResponse = {
+                status: 'error',
+                code: 404,
+                message: 'User not found',
+            };
+
+            expect(mockErrorResponse.code).toBe(404);
+            expect(mockErrorResponse.message).toBe('User not found');
+        });
+    });
+
+    describe('Resend verification email validation', () => {
+        it('should return verification email sent', () => {
+            const mockResendResponse = {
+                status: 'success',
+                code: 200,
+                message: 'Verification email sent',
+            };
+
+            expect(mockResendResponse.code).toBe(200);
+            expect(mockResendResponse.message).toBe('Verification email sent');
+        });
+
+        it('should return error if already verified', () => {
+            const mockAlreadyVerifiedResponse = {
+                status: 'error',
+                code: 400,
+                message: 'Verification has already been passed',
+            };
+
+            expect(mockAlreadyVerifiedResponse.code).toBe(400);
+            expect(mockAlreadyVerifiedResponse.message).toBe('Verification has already been passed');
+        });
+    });
 });

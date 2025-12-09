@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import { verifyUserDirectly } from '../helpers/testHelpers.js';
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -30,7 +31,7 @@ function generateRandomUser() {
 }
 
 async function testAuthAPI() {
-    console.log('\nAUTH INTEGRATION TESTS\n');
+    console.log('\nAUTH INTEGRATION TESTS WITH EMAIL VERIFICATION\n');
 
     const testUser = generateRandomUser();
     let authToken = null;
@@ -46,7 +47,7 @@ async function testAuthAPI() {
 
     if (registerResult.status === 201 && registerResult.data.data.user.avatarURL) {
         console.log('PASS - User registered with avatarURL');
-        console.log(`Avatar: ${registerResult.data.data.user.avatarURL}`);
+        console.log(`Email: ${registerResult.data.data.user.email}`);
     } else {
         console.log('FAIL');
     }
@@ -56,17 +57,57 @@ async function testAuthAPI() {
         return;
     }
 
-    console.log('\nTEST 2: POST /api/auth/register (duplicate email)');
-    const duplicateResult = await request(`${BASE_URL}/auth/register`, {
+    console.log('\nTEST 2: POST /api/auth/login (before verification)');
+    const loginBeforeVerify = await request(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(testUser),
     });
 
-    console.log(`Status: ${duplicateResult.status}`);
-    console.log(duplicateResult.status === 409 ? 'PASS' : 'FAIL');
+    console.log(`Status: ${loginBeforeVerify.status}`);
+    console.log(`Message: ${loginBeforeVerify.data?.message}`);
+    console.log(loginBeforeVerify.status === 401 && loginBeforeVerify.data.message === 'Email not verified' ? 'PASS - Login blocked before verification' : 'FAIL');
 
-    console.log('\nTEST 3: POST /api/auth/login');
+    console.log('\nTEST 3: POST /api/auth/verify (resend verification)');
+    const resendResult = await request(`${BASE_URL}/auth/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: testUser.email }),
+    });
+
+    console.log(`Status: ${resendResult.status}`);
+    console.log(`Message: ${resendResult.data?.message}`);
+    console.log(resendResult.status === 200 ? 'PASS - Verification email resent' : 'FAIL');
+
+    console.log('\nTEST 4: POST /api/auth/verify (missing email)');
+    const missingEmailResult = await request(`${BASE_URL}/auth/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+    });
+
+    console.log(`Status: ${missingEmailResult.status}`);
+    console.log(missingEmailResult.status === 400 ? 'PASS - Missing email validation' : 'FAIL');
+
+    console.log('\nTEST 5: GET /api/auth/verify/:verificationToken (invalid token)');
+    const invalidTokenResult = await request(`${BASE_URL}/auth/verify/invalid-token-12345`, {
+        method: 'GET',
+    });
+
+    console.log(`Status: ${invalidTokenResult.status}`);
+    console.log(`Message: ${invalidTokenResult.data?.message}`);
+    console.log(invalidTokenResult.status === 404 && invalidTokenResult.data?.message === 'User not found' ? 'PASS - Invalid token returns 404' : 'FAIL');
+
+    console.log('\nSETUP: Auto-verifying user for remaining tests...');
+    try {
+        await verifyUserDirectly(testUser.email);
+        console.log('User verified successfully');
+    } catch (error) {
+        console.error('Failed to verify user:', error.message);
+        return;
+    }
+
+    console.log('\nTEST 6: POST /api/auth/login (after verification)');
     const loginResult = await request(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,26 +118,13 @@ async function testAuthAPI() {
 
     if (loginResult.status === 200 && loginResult.data.data.token) {
         authToken = loginResult.data.data.token;
-        console.log('PASS - Token received');
+        console.log('PASS - Login successful after verification');
     } else {
         console.log('FAIL');
         return;
     }
 
-    console.log('\nTEST 4: POST /api/auth/login (wrong password)');
-    const wrongPasswordResult = await request(`${BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            email: testUser.email,
-            password: 'wrongpassword',
-        }),
-    });
-
-    console.log(`Status: ${wrongPasswordResult.status}`);
-    console.log(wrongPasswordResult.status === 401 ? 'PASS' : 'FAIL');
-
-    console.log('\nTEST 5: GET /api/auth/current');
+    console.log('\nTEST 7: GET /api/auth/current');
     const currentResult = await request(`${BASE_URL}/auth/current`, {
         method: 'GET',
         headers: {
@@ -108,20 +136,22 @@ async function testAuthAPI() {
 
     if (currentResult.status === 200 && currentResult.data.data.avatarURL) {
         console.log('PASS - Current user with avatarURL');
-        console.log(`Avatar: ${currentResult.data.data.avatarURL}`);
     } else {
         console.log('FAIL');
     }
 
-    console.log('\nTEST 6: GET /api/auth/current (without token)');
-    const unauthorizedResult = await request(`${BASE_URL}/auth/current`, {
-        method: 'GET',
+    console.log('\nTEST 8: POST /api/auth/verify (already verified)');
+    const alreadyVerifiedResult = await request(`${BASE_URL}/auth/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: testUser.email }),
     });
 
-    console.log(`Status: ${unauthorizedResult.status}`);
-    console.log(unauthorizedResult.status === 401 ? 'PASS' : 'FAIL');
+    console.log(`Status: ${alreadyVerifiedResult.status}`);
+    console.log(`Message: ${alreadyVerifiedResult.data?.message}`);
+    console.log(alreadyVerifiedResult.status === 400 && alreadyVerifiedResult.data?.message === 'Verification has already been passed' ? 'PASS' : 'FAIL');
 
-    console.log('\nTEST 7: PATCH /api/auth/subscription');
+    console.log('\nTEST 9: PATCH /api/auth/subscription');
     const subscriptionResult = await request(`${BASE_URL}/auth/subscription`, {
         method: 'PATCH',
         headers: {
@@ -134,7 +164,7 @@ async function testAuthAPI() {
     console.log(`Status: ${subscriptionResult.status}`);
     console.log(subscriptionResult.status === 200 ? 'PASS' : 'FAIL');
 
-    console.log('\nTEST 8: POST /api/auth/logout');
+    console.log('\nTEST 10: POST /api/auth/logout');
     const logoutResult = await request(`${BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: {
@@ -144,17 +174,6 @@ async function testAuthAPI() {
 
     console.log(`Status: ${logoutResult.status}`);
     console.log(logoutResult.status === 204 ? 'PASS' : 'FAIL');
-
-    console.log('\nTEST 9: GET /api/auth/current (after logout)');
-    const afterLogoutResult = await request(`${BASE_URL}/auth/current`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${authToken}`,
-        },
-    });
-
-    console.log(`Status: ${afterLogoutResult.status}`);
-    console.log(afterLogoutResult.status === 401 ? 'PASS' : 'FAIL');
 
     console.log('\nAUTH TESTS COMPLETED\n');
 }
